@@ -6,6 +6,7 @@ import datetime
 import json
 from zoneinfo import ZoneInfo
 
+
 def login(username: str, password: str, headers) -> requests.Session:
     url = 'https://www.sunnyportal.com/Templates/Start.aspx?logout=true'
     form_data = {
@@ -31,6 +32,7 @@ def login(username: str, password: str, headers) -> requests.Session:
     print("Login successful.")
     return session
 
+
 def print_dashboard_info(session: requests.Session, headers):
     dashboard_url = 'https://www.sunnyportal.com/Dashboard'
     # Milliseconds since Unix epoch
@@ -50,6 +52,7 @@ def print_dashboard_info(session: requests.Session, headers):
         print("Netzbezug   : {}W".format(dashboard_json['GridConsumption']))
     else:
         print("Could not get Dashboard info: No JSON data")
+
 
 def get_energy_chart(session: requests.Session, headers, start: datetime.datetime, end: datetime.datetime):
     url = 'https://www.sunnyportal.com/FixedPages/HoManEnergyRedesign.aspx'
@@ -100,6 +103,7 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
     else:
         print("Could not download CSV")
 
+
 def main():
     try:
         with open('.config.json', 'r') as config_file:
@@ -118,7 +122,9 @@ def main():
 
     session = login(username, password, headers)
     print_dashboard_info(session, headers)
-    get_energy_chart(session, headers, datetime.datetime(2023, 1, 1, 0, 0, tzinfo=cet_tz), datetime.datetime(2023, 1, 2, 0, 0, tzinfo=cet_tz))
+    get_energy_chart(session, headers, datetime.datetime(
+        2023, 1, 1, 0, 0, tzinfo=cet_tz), datetime.datetime(2023, 1, 2, 0, 0, tzinfo=cet_tz))
+
 
 if __name__ == "__main__":
     main()
