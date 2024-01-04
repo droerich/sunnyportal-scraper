@@ -11,8 +11,6 @@ def login(username: str, password: str, headers) -> requests.Session:
     form_data = {
         "__EVENTTARGET": "",
         "__EVENTARGUMENT": "",
-        #"__VIEWSTATE": "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",
-        #"__VIEWSTATEGENERATOR": "4E24AF74",
         "ctl00$ContentPlaceHolder1$Logincontrol1$txtUserName": username,
         "ctl00$ContentPlaceHolder1$Logincontrol1$txtPassword": password,
         "ctl00$ContentPlaceHolder1$Logincontrol1$LoginBtn": "Anmelden",
@@ -124,19 +122,6 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
         return None
     else:
         print("Get Last Info OK")
-
-    url = 'https://www.sunnyportal.com/FixedPages/HoManEnergyRedesign.aspx/GetLegendWithValues'
-    data = {
-        # Webseite nimmt hier was leicht anderes. Bedeutung unklar
-        #'anchorTime': int(end.timestamp()),
-        'anchorTime': 1672531200,
-        'tabNumber': 1
-    }
-    resp = session.post(url, json=data, headers=headers)
-    if not resp.ok:
-        return None
-    else:
-        print("Post Legend OK")
 
     url = 'https://www.sunnyportal.com/Templates/DownloadDiagram.aspx'
     params = {
