@@ -71,13 +71,9 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
         return None
     else:
         print("Get Energy Chart OK")
-        # DEBUG
-        img_file='/tmp/energy_chart_current.png'
-        with open(img_file, 'wb') as file:
-            file.write(resp.content)
-        print("Energy chart written to {}".format(img_file))
 
-    # Get char with time span
+    # Get chart with time span
+    #   This enables download of a specific range
     url = 'https://www.sunnyportal.com/PortalCharts/Core/PortalChartsAPI.aspx'
     params = {
         'id': 'mainChart',
@@ -91,18 +87,7 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
     else:
         print("Get Energy Chart OK")
 
-    url = 'https://www.sunnyportal.com/PortalCharts/Core/PortalChartsAPI.aspx'
-    params = {
-        'id': 'mainChart',
-        'mode': 'last_info',
-        't': int(time.time() * 1000)
-    }
-    resp = session.get(url, params=params, headers=headers)
-    if not resp.ok:
-        return None
-    else:
-        print("Get Last Info OK")
-
+    # Download energy data in CSV format
     url = 'https://www.sunnyportal.com/Templates/DownloadDiagram.aspx'
     params = {
         'down': 'homanEnergyRedesign',
