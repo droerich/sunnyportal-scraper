@@ -59,8 +59,8 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
     else:
         print("Get HomManEnergyRedesign OK")
 
-    # Chart OHNE Zeitparameter
-    # Offensichtlich ist das notwendig, damit der nächste Request mit Zeitbereich funktioniert
+    # Get chart without time span
+    #   Apparently, this is necessary for the nex request to work as expected
     url = 'https://www.sunnyportal.com/PortalCharts/Core/PortalChartsAPI.aspx'
     params = {
         'id': 'mainChart',
@@ -77,7 +77,7 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
             file.write(resp.content)
         print("Energy chart written to {}".format(img_file))
 
-    # Chart MIT Zeitparameter
+    # Get char with time span
     url = 'https://www.sunnyportal.com/PortalCharts/Core/PortalChartsAPI.aspx'
     params = {
         'id': 'mainChart',
