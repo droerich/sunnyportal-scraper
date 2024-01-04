@@ -85,19 +85,11 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
         'xt': int(end.timestamp()),
         't': int(time.time() * 1000)
     }
-    # DEBUG
-    print("Start: {}".format(int(start.timestamp())))
-    print("End  : {}".format(int(end.timestamp())))
     resp = session.get(url, params=params, headers=headers)
     if not resp.ok:
         return None
     else:
         print("Get Energy Chart OK")
-        # DEBUG
-        img_file='/tmp/energy_chart_history.png'
-        with open(img_file, 'wb') as file:
-            file.write(resp.content)
-        print("Energy chart written to {}".format(img_file))
 
     url = 'https://www.sunnyportal.com/PortalCharts/Core/PortalChartsAPI.aspx'
     params = {
