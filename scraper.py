@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import requests
-import time
+import argparse
 import datetime
 import json
+import requests
+import time
 from zoneinfo import ZoneInfo
 
 
@@ -105,10 +106,17 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
 
 
 def main():
-    try:
-        with open('.config.json', 'r') as config_file:
-            config = json.load(config_file)
+    cli_parser = argparse.ArgumentParser(
+        description="Retrieve energy data from SMA Sunny Portal")
+    cli_parser.add_argument('--config', type=str,
+                            help="Path to config file", default='.config.json')
+    cli_parser.add_argument('-c', '--current', action='store_true',
+                            help='Print the current energy generation and consumption')
+    cli_args = cli_parser.parse_args()
 
+    try:
+        with open(cli_args.config, 'r') as config_file:
+            config = json.load(config_file)
         username = config['username']
         password = config['password']
     except Exception as e:
@@ -121,9 +129,11 @@ def main():
     cet_tz = ZoneInfo("Europe/Berlin")
 
     session = login(username, password, headers)
-    print_dashboard_info(session, headers)
-    get_energy_chart(session, headers, datetime.datetime(
-        2023, 1, 1, 0, 0, tzinfo=cet_tz), datetime.datetime(2023, 1, 2, 0, 0, tzinfo=cet_tz))
+    if cli_args.current:
+        print_dashboard_info(session, headers)
+    else:
+        get_energy_chart(session, headers, datetime.datetime(
+            2023, 1, 1, 0, 0, tzinfo=cet_tz), datetime.datetime(2023, 1, 2, 0, 0, tzinfo=cet_tz))
 
 
 if __name__ == "__main__":
