@@ -35,6 +35,9 @@ def login(username: str, password: str, headers) -> requests.Session:
 
 
 def print_dashboard_info(session: requests.Session, headers):
+    """
+    Retrieves and prints the current power generation and consumption.
+    """
     dashboard_url = 'https://www.sunnyportal.com/Dashboard'
     # Milliseconds since Unix epoch
     timestamp = int(time.time() * 1000)
@@ -47,10 +50,12 @@ def print_dashboard_info(session: requests.Session, headers):
         return
     dashboard_json = response.json()
     if dashboard_json != None:
-        print("Aktuelle Energiedaten")
-        print("PV-Erzeugung: {}W".format(dashboard_json['PV']))
-        print("Verbrauch   : {}W".format(dashboard_json['TotalConsumption']))
-        print("Netzbezug   : {}W".format(dashboard_json['GridConsumption']))
+        print("Current energy data")
+        print("PV generation    : {}W".format(dashboard_json['PV']))
+        print("Total consumption: {}W".format(
+            dashboard_json['TotalConsumption']))
+        print("Grid consumption : {}W".format(
+            dashboard_json['GridConsumption']))
     else:
         print("Could not get Dashboard info: No JSON data")
 
