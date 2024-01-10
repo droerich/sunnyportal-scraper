@@ -110,13 +110,46 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
         print("Could not download CSV")
 
 
+def to_day(date_str: str) -> datetime.datetime:
+    return datetime.datetime.strptime(date_str, '%Y-%m-%d')
+
+
+def current(session, headers, _args):
+    print_dashboard_info(session, headers)
+
+
+def history(session, headers, args):
+    cet_tz = ZoneInfo("Europe/Berlin")
+    if args.day != None:
+        start_date = args.day.replace(
+            tzinfo=cet_tz, hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + datetime.timedelta(days=1)
+    else:
+        raise NotImplementedError("today not implemented")
+    print("Retrieving energy data from {} to {}".format(start_date, end_date))
+    get_energy_chart(session, headers, start_date, end_date)
+
+
 def main():
+    # Create command line parser
     cli_parser = argparse.ArgumentParser(
         description="Retrieve energy data from SMA Sunny Portal")
     cli_parser.add_argument('--config', type=str,
                             help="Path to config file", default='.config.json')
-    cli_parser.add_argument('-c', '--current', action='store_true',
-                            help='Print the current energy generation and consumption')
+    subparsers = cli_parser.add_subparsers(
+        title='subcommand', dest='subcommand', help='Subcommand', required=True)
+    #   Subcommand "current"
+    current_cmd_parser = subparsers.add_parser(
+        'current', help='Print the current energy generation and consumption')
+    current_cmd_parser.set_defaults(func=current)
+    #   Subcommand "history"
+    history_cmd_parser = subparsers.add_parser(
+        'history', help='Retrieve historic energy data in CSV format. Without arguments gets data from today.')
+    history_cmd_parser.add_argument(
+        '--day', '-d', type=to_day, help='The day to retrieve in the format YYYY-MM-DD')
+    history_cmd_parser.set_defaults(func=history)
+
+    # Parse command line arguments
     cli_args = cli_parser.parse_args()
 
     try:
@@ -131,14 +164,10 @@ def main():
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0'
     }
-    cet_tz = ZoneInfo("Europe/Berlin")
 
     session = login(username, password, headers)
-    if cli_args.current:
-        print_dashboard_info(session, headers)
-    else:
-        get_energy_chart(session, headers, datetime.datetime(
-            2023, 1, 1, 0, 0, tzinfo=cet_tz), datetime.datetime(2023, 1, 2, 0, 0, tzinfo=cet_tz))
+    # Call the function handling the subcommand
+    cli_args.func(session, headers, cli_args)
 
 
 if __name__ == "__main__":
