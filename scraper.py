@@ -111,14 +111,23 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
 
 
 def to_day(date_str: str) -> datetime.datetime:
+    """
+    Helper function converting a string in format "YYYY-MM-DD" to a datetime object
+    """
     return datetime.datetime.strptime(date_str, '%Y-%m-%d')
 
 
 def current(session, headers, _args):
+    """
+    Called for CLI subcommand "current". Prints current energy consumption.
+    """
     print_dashboard_info(session, headers)
 
 
 def history(session, headers, args):
+    """
+    Called with the CLI args for CLI subcommand "history". Retrieves energy data for a given time span.
+    """
     cet_tz = ZoneInfo("Europe/Berlin")
     if args.day != None:
         start_date = args.day.replace(
