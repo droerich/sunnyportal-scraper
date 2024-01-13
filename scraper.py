@@ -132,10 +132,22 @@ def history(session, headers, args):
             hour=0, minute=0, second=0, microsecond=0)
     end_date = start_date + datetime.timedelta(days=1)
     print("Retrieving energy data from {} to {}".format(start_date, end_date))
+
     try:
-        get_energy_chart(session, headers, start_date, end_date)
+        energy_csv = get_energy_chart(session, headers, start_date, end_date)
     except RuntimeError as e:
         print("Error getting energy data: {}".format(e))
+        return
+
+    try:
+        filename = "sma_energy_data_{}.csv".format(
+            datetime.datetime.strftime(start_date, '%Y-%m-%d'))
+        with open(filename, 'w') as file:
+            file.write(energy_csv)
+        print("Energy data written to {}".format(filename))
+    except Exception as e:
+        print("Error writing CSV file: {}".format(e))
+        return
 
 
 def main():
