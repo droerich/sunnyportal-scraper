@@ -123,9 +123,10 @@ def history(session, headers, args):
     if args.day != None:
         start_date = args.day.replace(
             tzinfo=cet_tz, hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + datetime.timedelta(days=1)
     else:
-        raise NotImplementedError("today not implemented")
+        start_date = datetime.datetime.now(cet_tz).replace(
+            hour=0, minute=0, second=0, microsecond=0)
+    end_date = start_date + datetime.timedelta(days=1)
     print("Retrieving energy data from {} to {}".format(start_date, end_date))
     get_energy_chart(session, headers, start_date, end_date)
 
