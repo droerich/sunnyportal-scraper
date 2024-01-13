@@ -60,13 +60,17 @@ def print_dashboard_info(session: requests.Session, headers):
         print("Could not get Dashboard info: No JSON data")
 
 
-def get_energy_chart(session: requests.Session, headers, start: datetime.datetime, end: datetime.datetime):
-    url = 'https://www.sunnyportal.com/FixedPages/HoManEnergyRedesign.aspx'
-    resp = session.get(url, headers=headers)
-    if not resp.ok:
-        return None
-    else:
-        print("Get HomManEnergyRedesign OK")
+def get_energy_chart(session: requests.Session, headers, start: datetime.datetime, end: datetime.datetime) -> str:
+    def sunny_request(url, params=None):
+        resp = session.get(url, headers=headers, params=params)
+        if not resp.ok:
+            raise RuntimeError(
+                "Request to {} failed with status {}".format(url, resp.status_code))
+        return resp
+
+    sunny_request(
+        'https://www.sunnyportal.com/FixedPages/HoManEnergyRedesign.aspx')
+    print("Get HomManEnergyRedesign OK")
 
     # Get chart without time span
     #   Apparently, this is necessary for the nex request to work as expected
@@ -75,11 +79,9 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
         'id': 'mainChart',
         't': int(time.time() * 1000)
     }
+    sunny_request(url, params)
     resp = session.get(url, params=params, headers=headers)
-    if not resp.ok:
-        return None
-    else:
-        print("Get Energy Chart OK")
+    print("Get Energy Chart OK")
 
     # Get chart with time span
     #   This enables download of a specific range
@@ -90,11 +92,8 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
         'xt': int(end.timestamp()),
         't': int(time.time() * 1000)
     }
-    resp = session.get(url, params=params, headers=headers)
-    if not resp.ok:
-        return None
-    else:
-        print("Get Energy Chart OK")
+    sunny_request(url, params)
+    print("Get Energy Chart OK")
 
     # Download energy data in CSV format
     url = 'https://www.sunnyportal.com/Templates/DownloadDiagram.aspx'
@@ -102,12 +101,8 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
         'down': 'homanEnergyRedesign',
         'chartId': 'mainChart'
     }
-    resp = session.get(url, params=params, headers=headers)
-    if resp.ok:
-        print(resp.text)
-        pass
-    else:
-        print("Could not download CSV")
+    resp = sunny_request(url, params)
+    return resp.text
 
 
 def to_day(date_str: str) -> datetime.datetime:
@@ -137,7 +132,10 @@ def history(session, headers, args):
             hour=0, minute=0, second=0, microsecond=0)
     end_date = start_date + datetime.timedelta(days=1)
     print("Retrieving energy data from {} to {}".format(start_date, end_date))
-    get_energy_chart(session, headers, start_date, end_date)
+    try:
+        get_energy_chart(session, headers, start_date, end_date)
+    except RuntimeError as e:
+        print("Error getting energy data: {}".format(e))
 
 
 def main():
