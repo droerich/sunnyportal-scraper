@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import json
+import os
 import requests
 import time
 from zoneinfo import ZoneInfo
@@ -140,11 +141,16 @@ def history(session, headers, args):
         return
 
     try:
+        out_dir = '.'
+        if args.out_dir != None:
+            out_dir = args.out_dir
+            os.makedirs(out_dir, exist_ok=True)
         filename = "sma_energy_data_{}.csv".format(
             datetime.datetime.strftime(start_date, '%Y-%m-%d'))
-        with open(filename, 'w') as file:
+        out_path = os.path.join(out_dir, filename)
+        with open(out_path, 'w') as file:
             file.write(energy_csv)
-        print("Energy data written to {}".format(filename))
+        print("Energy data written to {}".format(out_path))
     except Exception as e:
         print("Error writing CSV file: {}".format(e))
         return
@@ -167,6 +173,8 @@ def main():
         'history', help='Retrieve historic energy data in CSV format. Without arguments gets data from today.')
     history_cmd_parser.add_argument(
         '--day', '-d', type=to_day, help='The day to retrieve in the format YYYY-MM-DD')
+    history_cmd_parser.add_argument(
+        '--out-dir', '-o', help='Directory to write the ouput file(s) to')
     history_cmd_parser.set_defaults(func=history)
 
     # Parse command line arguments
