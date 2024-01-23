@@ -71,7 +71,6 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
 
     sunny_request(
         'https://www.sunnyportal.com/FixedPages/HoManEnergyRedesign.aspx')
-    print("Get HomManEnergyRedesign OK")
 
     # Get chart without time span
     #   Apparently, this is necessary for the nex request to work as expected
@@ -82,7 +81,6 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
     }
     sunny_request(url, params)
     resp = session.get(url, params=params, headers=headers)
-    print("Get Energy Chart OK")
 
     # Get chart with time span
     #   This enables download of a specific range
@@ -94,7 +92,6 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
         't': int(time.time() * 1000)
     }
     sunny_request(url, params)
-    print("Get Energy Chart OK")
 
     # Download energy data in CSV format
     url = 'https://www.sunnyportal.com/Templates/DownloadDiagram.aspx'
@@ -108,9 +105,34 @@ def get_energy_chart(session: requests.Session, headers, start: datetime.datetim
 
 def to_day(date_str: str) -> datetime.datetime:
     """
-    Helper function converting a string in format "YYYY-MM-DD" to a datetime object
+    Helper function converting a string in format "YYYY-MM-DD" to a datetime object.
     """
     return datetime.datetime.strptime(date_str, '%Y-%m-%d')
+
+
+def to_year(date_str: str) -> datetime.datetime:
+    """
+    Helper function converting a string in format "YYYY" to a datetime object
+    """
+    return datetime.datetime.strptime(date_str, '%Y')
+
+
+def get_and_write_day(session, headers, date: datetime.datetime, out_dir: str):
+    """
+    Retrieve energy data for the day given by `date` and write it to a CSV file in `out_dir`.
+    """
+    start_date = date
+    end_date = start_date + datetime.timedelta(days=1)
+
+    print("Retrieving energy data from {} to {}".format(start_date, end_date))
+    energy_csv = get_energy_chart(session, headers, start_date, end_date)
+
+    filename = "sma_energy_data_{}.csv".format(
+        datetime.datetime.strftime(start_date, '%Y-%m-%d'))
+    out_path = os.path.join(out_dir, filename)
+    with open(out_path, 'w') as file:
+        file.write(energy_csv)
+    print("Energy data written to {}".format(out_path))
 
 
 def current(session, headers, _args):
@@ -125,34 +147,44 @@ def history(session, headers, args):
     Called with the CLI args for CLI subcommand "history". Retrieves energy data for a given time span.
     """
     cet_tz = ZoneInfo("Europe/Berlin")
+
+    if args.day != None and args.full_year != None:
+        raise RuntimeError(
+            "--day and --full-year cannot be specified at the same time")
+
     if args.day != None:
         start_date = args.day.replace(
             tzinfo=cet_tz, hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date
+    elif args.full_year != None:
+        start_date = args.full_year.replace(
+            tzinfo=cet_tz, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date.replace(month=12, day=31)
     else:
         start_date = datetime.datetime.now(cet_tz).replace(
             hour=0, minute=0, second=0, microsecond=0)
-    end_date = start_date + datetime.timedelta(days=1)
-    print("Retrieving energy data from {} to {}".format(start_date, end_date))
+        end_date = start_date
 
+    # Create output dir (if provided by user)
+    out_dir = '.'
     try:
-        energy_csv = get_energy_chart(session, headers, start_date, end_date)
-    except RuntimeError as e:
-        print("Error getting energy data: {}".format(e))
-        return
-
-    try:
-        out_dir = '.'
         if args.out_dir != None:
             out_dir = args.out_dir
             os.makedirs(out_dir, exist_ok=True)
-        filename = "sma_energy_data_{}.csv".format(
-            datetime.datetime.strftime(start_date, '%Y-%m-%d'))
-        out_path = os.path.join(out_dir, filename)
-        with open(out_path, 'w') as file:
-            file.write(energy_csv)
-        print("Energy data written to {}".format(out_path))
+    except OSError as e:
+        print("Error: could not create output dir '{}': {}".format(out_dir, e))
+        return
+
+    # Get data for all days and write them to a file (one file per day)
+    current_date = start_date
+    try:
+        while True:
+            get_and_write_day(session, headers, current_date, out_dir)
+            current_date = current_date + datetime.timedelta(days=1)
+            if current_date > end_date:
+                break
     except Exception as e:
-        print("Error writing CSV file: {}".format(e))
+        print("Error: could not get data for {}: {}".format(current_date, e))
         return
 
 
@@ -175,6 +207,8 @@ def main():
         '--day', '-d', type=to_day, help='The day to retrieve in the format YYYY-MM-DD')
     history_cmd_parser.add_argument(
         '--out-dir', '-o', help='Directory to write the ouput file(s) to')
+    history_cmd_parser.add_argument(
+        '--full-year', '-f', type=to_year, help="The year to  retrieve. Cannot be used together with '--day'")
     history_cmd_parser.set_defaults(func=history)
 
     # Parse command line arguments
