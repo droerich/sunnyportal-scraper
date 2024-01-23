@@ -1,12 +1,24 @@
 #!/usr/bin/env python3
 
 import argparse
+from dataclasses import dataclass
 import datetime
 import json
 import os
 import requests
 import time
 from zoneinfo import ZoneInfo
+
+
+@dataclass
+class SessionData:
+    """
+    Contains data concerning a login session to make requests to the SunnyPortal server.
+    """
+    username: str
+    password: str
+    headers: dict[str, str]
+    session: requests.Session
 
 
 def login(username: str, password: str, headers) -> requests.Session:
@@ -35,7 +47,7 @@ def login(username: str, password: str, headers) -> requests.Session:
     return session
 
 
-def print_dashboard_info(session: requests.Session, headers):
+def print_dashboard_info(session_data: SessionData):
     """
     Retrieves and prints the current power generation and consumption.
     """
@@ -45,7 +57,8 @@ def print_dashboard_info(session: requests.Session, headers):
     params = {
         't': timestamp
     }
-    response = session.get(dashboard_url, params=params, headers=headers)
+    response = session_data.session.get(
+        dashboard_url, params=params, headers=session_data.headers)
     if not response.ok:
         print("Could not get Dashboard: {}", response.text)
         return
@@ -61,7 +74,10 @@ def print_dashboard_info(session: requests.Session, headers):
         print("Could not get Dashboard info: No JSON data")
 
 
-def get_energy_chart(session: requests.Session, headers, start: datetime.datetime, end: datetime.datetime) -> str:
+def get_energy_chart(session_data: SessionData, start: datetime.datetime, end: datetime.datetime) -> str:
+    session = session_data.session
+    headers = session_data.headers
+
     def sunny_request(url, params=None):
         resp = session.get(url, headers=headers, params=params)
         if not resp.ok:
@@ -117,7 +133,7 @@ def to_year(date_str: str) -> datetime.datetime:
     return datetime.datetime.strptime(date_str, '%Y')
 
 
-def get_and_write_day(session, headers, date: datetime.datetime, out_dir: str):
+def get_and_write_day(session_data: SessionData, date: datetime.datetime, out_dir: str):
     """
     Retrieve energy data for the day given by `date` and write it to a CSV file in `out_dir`.
     """
@@ -125,7 +141,7 @@ def get_and_write_day(session, headers, date: datetime.datetime, out_dir: str):
     end_date = start_date + datetime.timedelta(days=1)
 
     print("Retrieving energy data from {} to {}".format(start_date, end_date))
-    energy_csv = get_energy_chart(session, headers, start_date, end_date)
+    energy_csv = get_energy_chart(session_data, start_date, end_date)
 
     filename = "sma_energy_data_{}.csv".format(
         datetime.datetime.strftime(start_date, '%Y-%m-%d'))
@@ -135,14 +151,14 @@ def get_and_write_day(session, headers, date: datetime.datetime, out_dir: str):
     print("Energy data written to {}".format(out_path))
 
 
-def current(session, headers, _args):
+def current(session_data: SessionData, _args):
     """
     Called for CLI subcommand "current". Prints current energy consumption.
     """
-    print_dashboard_info(session, headers)
+    print_dashboard_info(session_data)
 
 
-def history(session, headers, args):
+def history(session_data: SessionData, args):
     """
     Called with the CLI args for CLI subcommand "history". Retrieves energy data for a given time span.
     """
@@ -177,10 +193,17 @@ def history(session, headers, args):
 
     # Get data for all days and write them to a file (one file per day)
     current_date = start_date
+    count = 0
     try:
         while True:
-            get_and_write_day(session, headers, current_date, out_dir)
+            get_and_write_day(session_data, current_date, out_dir)
             current_date = current_date + datetime.timedelta(days=1)
+            count += 1
+            if count >= 30:
+                print("Renew login session")
+                session_data.session = login(session_data.username,
+                                             session_data.password, session_data.headers)
+                count = 0
             if current_date > end_date:
                 break
     except Exception as e:
@@ -228,8 +251,9 @@ def main():
     }
 
     session = login(username, password, headers)
+    session_data = SessionData(username, password, headers, session)
     # Call the function handling the subcommand
-    cli_args.func(session, headers, cli_args)
+    cli_args.func(session_data, cli_args)
 
 
 if __name__ == "__main__":
