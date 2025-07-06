@@ -230,8 +230,12 @@ def history(session_data: SessionData, args):
             count += 1
             if count >= 30:
                 print("Renew login session")
-                session_data.session = login(session_data.username,
-                                             session_data.password, session_data.headers)
+                try:
+                    session_data.session = login(session_data.username,
+                                                 session_data.password, session_data.headers)
+                except RuntimeError as e:
+                    print("Login failure when renewing login session: {}".format(e))
+                    return
                 count = 0
             if current_date > end_date:
                 break
@@ -279,7 +283,11 @@ def main():
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0'
     }
 
-    session = login(username, password, headers)
+    try:
+        session = login(username, password, headers)
+    except RuntimeError as e:
+        print("Login failed: {}".format(e))
+        return
     session_data = SessionData(username, password, headers, session)
     # Call the function handling the subcommand
     cli_args.func(session_data, cli_args)
