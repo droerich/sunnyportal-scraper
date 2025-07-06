@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+from bs4 import BeautifulSoup
 from dataclasses import dataclass
 import datetime
 import json
 import os
 import requests
 import time
+from urllib.parse import urlparse, parse_qs
 from zoneinfo import ZoneInfo
 
 
@@ -22,29 +24,53 @@ class SessionData:
 
 
 def login(username: str, password: str, headers) -> requests.Session:
-    url = 'https://www.sunnyportal.com/Templates/Start.aspx?logout=true'
-    form_data = {
-        "__EVENTTARGET": "",
-        "__EVENTARGUMENT": "",
-        "ctl00$ContentPlaceHolder1$Logincontrol1$txtUserName": username,
-        "ctl00$ContentPlaceHolder1$Logincontrol1$txtPassword": password,
-        "ctl00$ContentPlaceHolder1$Logincontrol1$LoginBtn": "Anmelden",
-        "ctl00$ContentPlaceHolder1$Logincontrol1$ServiceAccess": "true",
-        "ctl00$ContentPlaceHolder1$Logincontrol1$MemorizePassword": "on",
-        "ClientBrowserVersion": "95",
-        "ClientAppVersion": "5.0+(Windows)",
-        "ClientAppName": "Netscape",
-        "ClientLanguage": "de",
-        "ClientPlatform": "Win32",
-        "ClientUserAgent": "Mozilla/5.0+(Windows+NT+10.0;+Win64;+x64;+rv:121.0)+Gecko/20100101+Firefox/121.0",
-        "ctl00$ContentPlaceHolder1$hiddenLanguage": "de-de"
-    }
+    login_url = 'https://login.sma.energy/auth/realms/SMA/protocol/openid-connect/auth?response_type=code&client_id=SunnyPortalClassic&redirect_uri=https%3a%2f%2fsunnyportal.com%2fTemplates%2fStart.aspx'
     session = requests.Session()
-    response = session.post(url, data=form_data, headers=headers)
-    if not response.ok:
-        raise RuntimeError("Login failed: {}".format(response.text))
-    print("Login successful.")
+    action_url = get_action_url(login_url, session)
+
+    post_request_data = {'username': username,
+                         'password': password, 'credentialId': ""}
+    login_response = session.post(
+        action_url, data=post_request_data, headers=headers)
+    # If login was successful, we are redirected. If the history is empty, the login failed.
+    if not login_response.history:
+        raise RuntimeError("Login failed (wrong username or password?)")
+
+    callback_url = login_response.url
+
+    # Parse the URL to separate the base URL from the parameters
+    parsed_url = urlparse(callback_url)
+    callback_base_url = parsed_url._replace(query=None).geturl()
+    callback_query_params = parse_qs(parsed_url.query)
+
+    # Make POST request to the callback URL finalizing the login.
+    final_page_response = session.post(
+        callback_base_url,
+        data=callback_query_params,
+        headers=headers
+    )
+
+    if final_page_response.status_code != 200:
+        raise RuntimeError(
+            f"Final login request failed with status code {final_page_response.status_code}")
+
     return session
+
+
+def get_action_url(login_page_url: str, session: requests.Session) -> str:
+    response = session.get(login_page_url, timeout=10)
+    response.raise_for_status()
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+    # The login page contains a form with the name 'loginForm'
+    login_form = soup.find('form', {'name': 'loginForm'})
+    if not login_form:
+        raise RuntimeError("Could not find 'loginForm' on the login page")
+    # The form contains the action URL we need
+    action_url = login_form.get('action')
+    if not action_url:
+        raise RuntimeError("Login form has no 'action' URL")
+    return action_url
 
 
 def print_dashboard_info(session_data: SessionData):
@@ -62,15 +88,18 @@ def print_dashboard_info(session_data: SessionData):
     if not response.ok:
         print("Could not get Dashboard: {}", response.text)
         return
-    dashboard_json = response.json()
-    if dashboard_json != None:
-        print("Current energy data")
-        print("PV generation    : {}W".format(dashboard_json['PV']))
-        print("Total consumption: {}W".format(
-            dashboard_json['TotalConsumption']))
-        print("Grid consumption : {}W".format(
-            dashboard_json['GridConsumption']))
-    else:
+    try:
+        dashboard_json = response.json()
+        if dashboard_json != None:
+            print("Current energy data")
+            print("PV generation    : {}W".format(dashboard_json['PV']))
+            print("Total consumption: {}W".format(
+                dashboard_json['TotalConsumption']))
+            print("Grid consumption : {}W".format(
+                dashboard_json['GridConsumption']))
+        else:
+            print("Could not get Dashboard info: No JSON data")
+    except requests.exceptions.JSONDecodeError:
         print("Could not get Dashboard info: No JSON data")
 
 
@@ -201,8 +230,12 @@ def history(session_data: SessionData, args):
             count += 1
             if count >= 30:
                 print("Renew login session")
-                session_data.session = login(session_data.username,
-                                             session_data.password, session_data.headers)
+                try:
+                    session_data.session = login(session_data.username,
+                                                 session_data.password, session_data.headers)
+                except RuntimeError as e:
+                    print("Login failure when renewing login session: {}".format(e))
+                    return
                 count = 0
             if current_date > end_date:
                 break
@@ -250,7 +283,11 @@ def main():
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0'
     }
 
-    session = login(username, password, headers)
+    try:
+        session = login(username, password, headers)
+    except RuntimeError as e:
+        print("Login failed: {}".format(e))
+        return
     session_data = SessionData(username, password, headers, session)
     # Call the function handling the subcommand
     cli_args.func(session_data, cli_args)
