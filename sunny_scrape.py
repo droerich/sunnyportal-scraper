@@ -11,6 +11,9 @@ import time
 from urllib.parse import urlparse, parse_qs
 from zoneinfo import ZoneInfo
 
+# Semantic version
+VERSION = {'major': 0, 'minor': 1, 'patch': 0}
+
 
 @dataclass
 class SessionData:
@@ -250,6 +253,8 @@ def main():
         description="Retrieve energy data from SMA Sunny Portal")
     cli_parser.add_argument('--config', type=str,
                             help="Path to config file", default='.config.json')
+    cli_parser.add_argument('--version', action='version', version='{}.{}.{}'.format(VERSION['major'], VERSION['minor'], VERSION['patch']),
+                            help='Show version and exit')
     subparsers = cli_parser.add_subparsers(
         title='subcommand', dest='subcommand', help='Subcommand', required=True)
     #   Subcommand "current"
