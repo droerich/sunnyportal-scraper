@@ -5,3 +5,5 @@ __pycache__/
 
 # User config
 /.config.json
+# Virtual environment
+/.venv
